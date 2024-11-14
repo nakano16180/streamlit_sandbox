@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 streamlit = "*"
 pandas = "*"
+streamlit-flow-component = "*"
 
 [dev-packages]
 
