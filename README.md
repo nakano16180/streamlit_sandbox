@@ -1,9 +1,11 @@
 ## streamlit_sandbox
 
+### パッケージのインストール
 ```
-pipenv install
+uv sync
 ```
 
+### 実行
 ```
-pipenv run streamlit run app.py
+uv run streamlit run app.py
 ```
