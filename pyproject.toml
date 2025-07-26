@@ -6,6 +6,7 @@ dependencies = [
     "streamlit",
     "pandas",
     "streamlit-flow-component",
+    "authlib>=1.6.1",
 ]
 
 [dependency-groups]
