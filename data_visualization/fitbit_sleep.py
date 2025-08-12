@@ -6,6 +6,18 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import random
+import json
+
+
+def load_sample_from_file():
+    with open('./data_visualization/data/get.json') as f:
+        d = json.load(f)
+    return d
+
+def load_sample_date_range():
+    with open("./data_visualization/data/get_by_daterange.json") as f:
+        d = json.load(f)
+    return d
 
 # ページ設定
 st.set_page_config(
@@ -13,6 +25,52 @@ st.set_page_config(
     page_icon="😴",
     layout="wide"
 )
+
+# Fitbit APIデータ変換関数
+def parse_fitbit_sleep_data(json_data):
+    """Fitbit APIのJSONデータをDataFrameに変換"""
+    sleep_records = []
+    
+    for sleep_record in json_data['sleep']:
+        # 基本的な睡眠情報
+        date_of_sleep = datetime.strptime(sleep_record['dateOfSleep'], '%Y-%m-%d').date()
+        start_time = datetime.fromisoformat(sleep_record['startTime'].replace('T', ' ').replace('.000', ''))
+        end_time = datetime.fromisoformat(sleep_record['endTime'].replace('T', ' ').replace('.000', ''))
+        
+        # 睡眠段階の集計
+        levels_summary = sleep_record['levels']['summary']
+        deep_sleep = 0
+        if "deep" in levels_summary:
+            deep_sleep = levels_summary['deep']['minutes']
+        light_sleep = 0
+        if "light" in levels_summary:
+            light_sleep = levels_summary['light']['minutes']
+        rem_sleep = 0
+        if "rem" in levels_summary:
+            rem_sleep = levels_summary['rem']['minutes']
+        wake_sleep = 0
+        if "wake" in levels_summary:
+            wake_sleep = levels_summary['wake']['minutes']
+        
+        record = {
+            'date': date_of_sleep,
+            'bedtime': start_time,
+            'wakeup': end_time,
+            'total_sleep_hours': sleep_record['minutesAsleep'] / 60,
+            'deep_sleep_minutes': deep_sleep,
+            'light_sleep_minutes': light_sleep,
+            'rem_sleep_minutes': rem_sleep,
+            'awake_minutes': wake_sleep,
+            'sleep_efficiency': sleep_record['efficiency'],
+            'sleep_score': 85,  # APIにスコアがない場合のデフォルト値
+            'time_to_fall_asleep': sleep_record['minutesToFallAsleep'],
+            'time_in_bed_minutes': sleep_record['timeInBed'],
+            'minutes_asleep': sleep_record['minutesAsleep']
+        }
+        
+        sleep_records.append(record)
+    
+    return pd.DataFrame(sleep_records)
 
 # ダミーデータ生成関数
 @st.cache_data
@@ -234,10 +292,48 @@ def main():
     
     # サイドバー
     st.sidebar.title("設定")
-    days_to_show = st.sidebar.slider("表示する日数", min_value=7, max_value=90, value=30)
     
-    # データ生成
-    df = generate_dummy_sleep_data(days_to_show)
+    # データソース選択
+    data_source = st.sidebar.radio(
+        "データソース",
+        ["ダミーデータ", "サンプルFitbitデータ", "サンプルFitbitデータ(1か月)"]
+    )
+    
+    if data_source == "ダミーデータ":
+        days_to_show = st.sidebar.slider("表示する日数", min_value=7, max_value=90, value=30)
+        df = generate_dummy_sleep_data(days_to_show)
+    elif data_source == "サンプルFitbitデータ":
+        # サンプルFitbitデータを使用
+        # sample_json = load_sample_fitbit_data()
+        sample_json = load_sample_from_file()
+        df_fitbit = parse_fitbit_sleep_data(sample_json)
+        
+        # 複数日のデータを作るため、サンプルデータを複製して日付を変更
+        df_list = []
+        for i in range(7):  # 7日分のデータを作成
+            df_copy = df_fitbit.copy()
+            df_copy['date'] = df_copy['date'].apply(lambda x: x - timedelta(days=i))
+            df_copy['bedtime'] = df_copy['bedtime'].apply(lambda x: x - timedelta(days=i))
+            df_copy['wakeup'] = df_copy['wakeup'].apply(lambda x: x - timedelta(days=i))
+            # 少し値をランダム化
+            df_copy['total_sleep_hours'] *= random.uniform(0.9, 1.1)
+            df_copy['sleep_efficiency'] *= random.uniform(0.95, 1.05)
+            df_list.append(df_copy)
+        
+        df = pd.concat(df_list, ignore_index=True)
+        df = df.sort_values('date').reset_index(drop=True)
+        
+        # 実際のFitbitデータの情報を表示
+        st.sidebar.markdown("### 📊 Fitbitデータ情報")
+        st.sidebar.write(f"日付: {sample_json['sleep'][0]['dateOfSleep']}")
+        st.sidebar.write(f"総睡眠時間: {sample_json['sleep'][0]['minutesAsleep']}分")
+        st.sidebar.write(f"睡眠効率: {sample_json['sleep'][0]['efficiency']}%")
+    else:
+        sample_json = load_sample_date_range()
+        df_fitbit = parse_fitbit_sleep_data(sample_json)
+
+        df = df_fitbit.sort_values("date").reset_index(drop=True)
+
     
     # 統計情報
     col1, col2, col3, col4 = st.columns(4)
@@ -277,6 +373,11 @@ def main():
     
     # データテーブル
     with st.expander("詳細データを表示"):
+        if data_source == "サンプルFitbitデータ":
+            st.markdown("### 🔍 元のFitbit APIレスポンス")
+            st.json(sample_json)
+            st.markdown("### 📋 変換後のデータ")
+        
         st.dataframe(df.sort_values('date', ascending=False))
 
 if __name__ == "__main__":
