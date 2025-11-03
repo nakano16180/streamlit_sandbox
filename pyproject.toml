@@ -7,6 +7,7 @@ dependencies = [
     "pandas",
     "streamlit-flow-component",
     "authlib>=1.6.1",
+    "plotly>=6.2.0",
 ]
 
 [dependency-groups]
