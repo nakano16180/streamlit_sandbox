@@ -1,7 +1,6 @@
 # c.f. https://github.com/dkapur17/streamlit-flow
 # https://stflow.streamlit.app/Minimap_And_Controls
 
-import streamlit as st
 from streamlit_flow import streamlit_flow
 from streamlit_flow.elements import StreamlitFlowNode, StreamlitFlowEdge
 from streamlit_flow.state import StreamlitFlowState
