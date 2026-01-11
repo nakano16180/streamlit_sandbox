@@ -59,9 +59,7 @@ def autholize_with_qiita():
 		}
 
 		try:
-			response = requests.post(
-				'https://qiita.com/api/v2/access_tokens', json=request_body
-			)
+			response = requests.post('https://qiita.com/api/v2/access_tokens', json=request_body)
 			response.raise_for_status()  # エラーが発生した場合に例外を発生させる
 
 			st.success('認証に成功しました！')
@@ -76,40 +74,49 @@ def autholize_with_qiita():
 			st.error(f'エラーが発生しました: {e}')
 
 
-autholize_with_qiita()
+def get_user_info():
+	if 'token' in st.session_state:
+		if st.button('Get User Info'):
+			try:
+				headers = {'Authorization': f'Bearer {st.session_state.token}'}
+				res = requests.get('https://qiita.com/api/v2/authenticated_user', headers=headers)
+				res.raise_for_status()
+
+				st.json(res.json())
+				st.session_state.id = res.json()['id']
+
+			except requests.exceptions.RequestException as e:
+				st.error(f'エラーが発生しました: {e}')
 
 
-if 'token' in st.session_state:
-	if st.button('Get User Info'):
-		try:
-			headers = {'Authorization': f'Bearer {st.session_state.token}'}
-			res = requests.get(
-				'https://qiita.com/api/v2/authenticated_user', headers=headers
-			)
-			res.raise_for_status()
+def get_stock_list():
+	if 'id' in st.session_state:
+		if st.button('Get Stock List'):
+			try:
+				user_id = st.session_state.id
+				page = 1
+				per_page = 100
+				headers = {'Authorization': f'Bearer {st.session_state.token}'}
+				res = requests.get(
+					f'https://qiita.com/api/v2/users/{user_id}/stocks?page={page}&per_page={per_page}',
+					headers=headers,
+				)
+				res.raise_for_status()
 
-			st.json(res.json())
-			st.session_state.id = res.json()['id']
-
-		except requests.exceptions.RequestException as e:
-			st.error(f'エラーが発生しました: {e}')
-
-st.json(st.session_state)
+				st.json(res.json())
+			except requests.exceptions.RequestException as e:
+				st.error(f'エラーが発生しました: {e}')
 
 
-if 'id' in st.session_state:
-	if st.button('Get Stock List'):
-		try:
-			user_id = st.session_state.id
-			page = 1
-			per_page = 100
-			headers = {'Authorization': f'Bearer {st.session_state.token}'}
-			res = requests.get(
-				f'https://qiita.com/api/v2/users/{user_id}/stocks?page={page}&per_page={per_page}',
-				headers=headers,
-			)
-			res.raise_for_status()
+def main():
+	autholize_with_qiita()
 
-			st.json(res.json())
-		except requests.exceptions.RequestException as e:
-			st.error(f'エラーが発生しました: {e}')
+	get_user_info()
+
+	st.json(st.session_state)
+
+	get_stock_list()
+
+
+if __name__ == '__main__':
+	main()
